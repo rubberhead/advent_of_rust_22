@@ -1,4 +1,3 @@
-use std::hash::Hash;
 use std::io::BufRead;
 use std::collections::HashSet; 
 
@@ -38,7 +37,35 @@ impl AOCSolutions for Day3 {
     }
 
     fn get_star_2(input: &str) -> Result<i64, ()> {
-        return Err(()); 
+        let mut input = input.as_bytes();
+        let mut read_amnt: usize; 
+        let mut sum: i64 = 0;
+        loop {
+            // Set up buffers
+            let mut bufs = [String::new(), String::new(), String::new()]; 
+            for buf in bufs.iter_mut() {
+                read_amnt = input.read_line(buf)
+                    .expect("[Day3::get_star_2] Error while reading line from `input`"); 
+                if read_amnt == 0 { 
+                    // EOF passed (cannot read more) => return sum, ignore anything already read in triplet.
+                    return Ok(sum); 
+                }
+            }
+
+            // Find common `u8` in buffers
+            if let Some(common) = bufs.iter()
+                .map(|s| HashSet::<&u8>::from_iter(s.trim().as_bytes().iter()))
+                .reduce(|partial_intersection, rhs| partial_intersection.intersection(&rhs).cloned().collect()) {
+                if common.is_empty() || common.len() > 1 { 
+                    return Err(()); 
+                } // else, guaranteed singleton
+                let badge = common.iter().next().unwrap(); 
+                sum += Day3::priority(badge)
+                    .expect("[Day3::get_star_2] Invalid `u8` in `input`"); 
+            } else { // iterator empty somehow
+                panic!("[Day3::get_star_2] Empty iterator after conversion to `HashSet<&u8>` -- This should not happen"); 
+            } 
+        }
     }
 }
 
@@ -73,5 +100,10 @@ mod tests {
     #[test]
     fn test_get_star_1() {
         assert_eq!(Day3::get_star_1(SAMPLE_INPUT).unwrap(), 157)
+    }
+
+    #[test]
+    fn test_get_star_2() {
+        assert_eq!(Day3::get_star_2(SAMPLE_INPUT).unwrap(), 70)
     }
 }

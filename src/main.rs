@@ -13,5 +13,5 @@ fn main() {
     let input = advent_of_rust_22::parse_to_string(& arguments[1]).unwrap(); 
 
     println!("{}", Day3::get_star_1(input.as_str()).unwrap());
-    //println!("{}", Day2::get_star_2(input.as_str()).unwrap()); 
+    println!("{}", Day3::get_star_2(input.as_str()).unwrap()); 
 }
