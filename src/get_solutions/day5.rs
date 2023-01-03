@@ -131,7 +131,7 @@ impl Day5 {
     Returns `Some`-wrapped `String` containing top crates of each row (i.e., numbered column) after 
     performing instructions. Otherwise returns `None` if given instructions cannot be followed. 
 
-    > Beware that this operation is destructive -- returned results are popped from `cargo_load` sub-vectors.  
+    > **This operation is destructive** -- returned results are popped from `cargo_load` sub-vectors.  
      */
     fn follow_instructions<R>(reader: &mut R, cargo_load: &mut CargoLoad, model: usize) -> Option<String> 
         where R: BufRead {
@@ -160,7 +160,7 @@ impl Day5 {
                             panic!("[Day5::follow_instructions] Undefined or malformed instruction \"{}\"", line); 
                         }
 
-                        // Check existence of rows, obtain necessary mut ref
+                        // Check existence of rows, obtain mut ref for from row (necessary?)
                         let crate_count = config[0]; 
                         let from = config[1] - 1;
                         let to = config[2] - 1; 
@@ -177,7 +177,7 @@ impl Day5 {
                                 return None; 
                             }, 
                         }
-                        
+                        // Check from row has enough crates
                         if from_row.len() < crate_count {
                             eprintln!(
                                 "[Day5::follow_instructions] Cannot follow instruction \"{}\": row {} has {} < {} crates", 
@@ -186,7 +186,7 @@ impl Day5 {
                             return None; 
                         }
 
-                        // Clone-and-truncate-and-append
+                        // Clone-and-truncate-and-append (maybe better solution in API?)
                         let mut to_be_moved: Vec<u8> = Vec::with_capacity(crate_count); 
                         from_row[from_row.len() - crate_count..].clone_into(&mut to_be_moved); 
                         match model {
