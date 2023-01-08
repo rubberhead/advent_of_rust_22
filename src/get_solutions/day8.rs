@@ -1,6 +1,5 @@
 use super::AOCSolutions; 
-use std::{iter::{Iterator, DoubleEndedIterator, Zip}, str::Lines, os::linux::raw}; 
-use core::ops::Index; 
+use std::{iter::Iterator, str::Lines}; 
 
 pub struct Day8;
 

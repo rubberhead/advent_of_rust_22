@@ -63,19 +63,64 @@ impl AdvancedRopeConfig {
         }
         AdvancedRopeConfig { ctrl_nodes }
     }
+
+    fn is_valid_segment(head: &Position, tail: &Position) -> bool {
+        let del_x = i64::abs_diff(head.0, tail.0); 
+        let del_y = i64::abs_diff(head.1, tail.1); 
+        del_x <= 1 && del_y <= 1
+    }
 }
 
 impl RopeConfig for AdvancedRopeConfig {
     fn increment_in_dir(&mut self, incr_variant: MoveVariant) {
-        // Chain increment: 
-        // for segment (a, b), if w/ head-only move we obtain valid (a, b), then we are finished, 
-        // else alter (a, b) to (a*, b*) as usual and move onto , say, (b*, c) 
-        todo!()
+        // Chain validation: 
+        // Move head once, then...
+        // if (*a, b) valid then we are finished, 
+        // else alter b to a => (*a, a) and compare (a, c) until valid seg found
+        let mut old_seg_head = self.ctrl_nodes[0].clone(); 
+        match incr_variant {
+            MoveVariant::XAdd => self.ctrl_nodes[0].0 += 1, 
+            MoveVariant::XSub => self.ctrl_nodes[0].0 -= 1, 
+            MoveVariant::YAdd => self.ctrl_nodes[0].1 += 1, 
+            MoveVariant::YSub => self.ctrl_nodes[0].1 -= 1, 
+        };
+
+        for i in 1..self.ctrl_nodes.len() {
+            if AdvancedRopeConfig::is_valid_segment(&self.ctrl_nodes[i - 1], &self.ctrl_nodes[i]) {
+                break; 
+            } else {
+                // Alter ctrl_nodes[i] according to specification
+                let x_dist = self.ctrl_nodes[i].0 - self.ctrl_nodes[i - 1].0;
+                let y_dist = self.ctrl_nodes[i].1 - self.ctrl_nodes[i - 1].1; 
+                match (i64::abs(x_dist), i64::abs(y_dist)) {
+                    (0, 2) => self.ctrl_nodes[i].1 -= y_dist / 2, 
+                    (2, 0) => self.ctrl_nodes[i].0 -= x_dist / 2, 
+                    (1, 2) => {
+                        self.ctrl_nodes[i].0 -= x_dist;
+                        self.ctrl_nodes[i].1 -= y_dist / 2;
+                    }, 
+                    (2, 1) => {
+                        self.ctrl_nodes[i].0 -= x_dist / 2; 
+                        self.ctrl_nodes[i].1 -= y_dist; 
+                    }, 
+                    (2, 2) => {
+                        self.ctrl_nodes[i].0 -= x_dist / 2; 
+                        self.ctrl_nodes[i].1 -= y_dist / 2;
+                    }
+                    _ => panic!("[day9::AdvancedRopeConfig::increment_in_dir] Invalid rope configuration: This should not happen"), 
+                }
+            }
+        }
     }
 
     fn is_valid_configuration(&self) -> bool {
         // Unnecessary, but why not
-        todo!()
+        for (seg_head, seg_tail) in self.ctrl_nodes.iter().zip(self.ctrl_nodes[1..].iter()) {
+            if !AdvancedRopeConfig::is_valid_segment(seg_head, seg_tail) {
+                return false; 
+            }
+        }
+        return true; 
     }
 }
 
@@ -139,9 +184,17 @@ impl AOCSolutions for Day9 {
 
     fn get_star_2(input: &str) -> Result<i64, ()> {
         let mut unique_tail_positions: HashSet<Position> = HashSet::from([(0, 0)]); 
+        let mut rope_config = AdvancedRopeConfig::new(10, (0, 0)); 
 
+        for line in input.lines() {
+            let mut mvmt = Move::from_line(line); 
+            while !mvmt.is_noop() {
+                mvmt.perform_once(&mut rope_config); 
+                unique_tail_positions.insert(rope_config.ctrl_nodes.last().unwrap().clone()); 
+            }
+        }
 
-        todo!()
+        return Ok(unique_tail_positions.len().try_into().unwrap()); 
     }
 }
 
@@ -159,9 +212,24 @@ D 1
 L 5
 R 2";
 
+    const SAMPLE_INPUT_2: &str = r"R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20";
+
     #[test]
     fn test_get_star_1() {
         assert_eq!(Day9::get_star_1(SAMPLE_INPUT).unwrap(), 13); 
+    }
+
+    #[test]
+    fn test_get_star_2() {
+        assert_eq!(Day9::get_star_2(SAMPLE_INPUT).unwrap(), 1); 
+        assert_eq!(Day9::get_star_2(SAMPLE_INPUT_2).unwrap(), 36); 
     }
 }
 

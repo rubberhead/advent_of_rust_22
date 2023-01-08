@@ -8,6 +8,8 @@ pub mod day7;
 mod day7_alt; 
 pub mod day8; 
 pub mod day9;
+pub mod day10; 
+pub mod day11; 
 
 /**
 Interface for iterating through problems as `Box<dyn AOCSolutions>` in *main.rs*. 
