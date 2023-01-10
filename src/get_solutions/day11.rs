@@ -153,7 +153,7 @@ impl AOCSolutions for Day11 {
         let (mut monkeys, prod_div) = parse_monkeys(input); 
 
         for _ in 1..=10000 as usize {
-            monkeys = play_round(monkeys, |item| { item % prod_div }); 
+            monkeys = play_round(monkeys, |item| { item % prod_div }); // Learned trick... I myself am not good at modular arithmetic
         }
 
         if monkeys.len() < 2 { return Ok(monkeys[0].inspection_count.try_into().unwrap()) }
