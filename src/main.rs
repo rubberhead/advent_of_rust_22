@@ -7,10 +7,10 @@ use day13::Day13;
 // TODO: Write a proper CLI. 
 fn main() {
     
-    let arguments: Vec<String> = env::args().collect(); 
-    assert!(arguments.len() == 2); 
-    let path = &arguments[1];
-    // let path = "./inputs/day12/input"; 
+    //let arguments: Vec<String> = env::args().collect(); 
+    //assert!(arguments.len() == 2); 
+    //let path = &arguments[1];
+    let path = "./inputs/day13/input"; 
     
     let input = advent_of_rust_22::parse_to_string(path).unwrap(); 
 

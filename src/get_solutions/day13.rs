@@ -39,93 +39,27 @@ fn modify_cursor_to(bc: &mut ByteCursor, idx: usize) {
 
 fn compare_expr(left: &mut ByteCursor, right: &mut ByteCursor) -> Ordering {
     match (left.0[left.1], right.0[right.1]) {
-        // Cons / Atom
-        (LIST_BGN, LIST_BGN) => { // L = cons, R = cons
-            // Move up cursor position
+        (LIST_BGN, LIST_BGN) => {
             increment_cursor(left);
             increment_cursor(right);
-
-            // Deepen value depth for hierarchical ordering
-            increment_depth(left); 
-            increment_depth(right); 
-
-            return compare_expr(left, right);
-        }, 
-        (LIST_BGN, u) if is_digit(u) => { // L = cons, R = atom
-            increment_cursor(left); 
             increment_depth(left);
-            let ord = compare_expr(left, right); 
-            if ord != Ordering::Equal { 
-                return ord;
-            } else {
-                increment_cursor(left);
-                decrement_depth(left);
-
-                increment_cursor(right);
-                return compare_expr(left, right);
-            }
+            increment_depth(right);
+            return compare_expr(left, right); 
         }, 
-        (u, LIST_BGN) if is_digit(u) => { // L = atom, R = cons
-            increment_cursor(right); 
-            increment_depth(right); 
-            // return compare_expr(left, right);
-            let ord = compare_expr(left, right); 
-            if ord != Ordering::Equal { 
-                return ord;
-            } else {
-                increment_cursor(left);
-
-                increment_cursor(right);
-                decrement_depth(right);
-
-                return compare_expr(left, right);
-            }
-        }, 
-        (LIST_END, LIST_END) => { 
-            // L/R cons both ends
-            if cursor_at_end(&left) && cursor_at_end(&right) { 
-                return Ordering::Equal; 
-            } else {
-                // New elem at same lvl available, continue
-                increment_cursor(left);
-                decrement_depth(left);
-
-                increment_cursor(right);
-                decrement_depth(right); 
-
-                return compare_expr(left, right); 
-            }
-        }, 
-        (LIST_END, u) if is_digit(u) || u == ATOMIC_SEP || u == LIST_BGN => {
-            if left.2 >= right.2 { 
-                // L cons ended but R has more elements (atomic or cons list)
-                return Ordering::Less; 
-            } else {
-                increment_cursor(left); 
-                decrement_depth(left); 
-                return compare_expr(left, right); 
-            }
-        }, 
-        (u, LIST_END) if is_digit(u) || u == ATOMIC_SEP || u == LIST_BGN => {
-            if right.2 >= left.2 { 
-                // R cons ended but L has more elements (atomic or cons list)
-                return Ordering::Greater; 
-            } else {
-                increment_cursor(right);
-                decrement_depth(right); 
-                return compare_expr(left, right); 
-            }  
-        }, 
-        
-        // Comma
-        (ATOMIC_SEP, ATOMIC_SEP) => { 
-            // Next atomic elem (which may be list or num)
+        (LIST_BGN, u) if is_digit(u) => { // Deepen & move L, fix R
             increment_cursor(left);
-            increment_cursor(right);
-            return compare_expr(left, right);
+            increment_depth(left);
+            return compare_expr(left, right); 
         }, 
+        (LIST_BGN, ATOMIC_SEP) => { // move R, fix L (alignment)
+            increment_cursor(right);
+            return compare_expr(left, right); 
+        }
+        (u, LIST_BGN) if u != LIST_END => { // Symmetry
+            return Ordering::reverse(compare_expr(right, left));
+        }, 
+
         (u_l, u_r) if is_digit(u_l) && is_digit(u_r) => {
-            // Num encountered
             let l_border = left.1 + left.0[left.1..].iter().enumerate()
                 .filter(|(_, u)| **u == LIST_END || **u == ATOMIC_SEP )
                 .next().unwrap().0; // First ']' or ',' on left
@@ -133,61 +67,66 @@ fn compare_expr(left: &mut ByteCursor, right: &mut ByteCursor) -> Ordering {
                 .filter(|(_, u)| **u == LIST_END || **u == ATOMIC_SEP )
                 .next().unwrap().0; // First ']' or ',' on right
 
-            let left_val = String::from_utf8_lossy(&left.0[left.1..l_border]).parse::<usize>(); 
-            let right_val = String::from_utf8_lossy(&right.0[right.1..r_border]).parse::<usize>(); 
+            let left_val = String::from_utf8_lossy(&left.0[left.1..l_border]).parse::<usize>()
+                .expect(&format!("[day13::compare_expr] Cannot parse numeric atomic value `{}`", &String::from_utf8_lossy(&left.0[left.1..l_border]))); 
+            let right_val = String::from_utf8_lossy(&right.0[right.1..r_border]).parse::<usize>()
+                .expect(&format!("[day13::compare_expr] Cannot parse numeric atomic value `{}`", &String::from_utf8_lossy(&right.0[right.1..r_border])));  
 
-            if left_val.is_err() || right_val.is_err() { 
-                panic!(
-                    "[day13::compare_expr] Cannot parse numeric atomic values `{}` or `{}`", 
-                    &String::from_utf8_lossy(&left.0[left.1..l_border]), 
-                    &String::from_utf8_lossy(&right.0[right.1..r_border]), 
-                ); 
-            }
-
-            let left_val = left_val.unwrap(); 
-            let right_val = right_val.unwrap(); 
             let ord = left_val.cmp(&right_val); 
-            if ord != Ordering::Equal {
-                return ord; 
+            if ord != Ordering::Equal { return ord; } 
+            // Otherwise, align both cursors to separator
+            increment_cursor(left);
+            increment_cursor(right);
+            return compare_expr(left, right); 
+        }, 
+        (ATOMIC_SEP, ATOMIC_SEP) => {
+            if left.2 < right.2 {
+                // L extrapolated to R's level, which is exhausted (e.g., L is num, extrapolated to list at R level)
+                return Ordering::Less;
+            } else if right.2 < left.2 {
+                // R extrapolated to L's level, which is exhausted (e.g., R is num, extrapolated to list at L level)
+                return Ordering::Greater;
             } else {
-                // Modify lowest hierarchy (or both) 
-                if left.2 == right.2 {
-                    // L, R at same depth 
-                    modify_cursor_to(left, l_border); 
-                    modify_cursor_to(right, r_border);
-                } else if left.2 < right.2 {
-                    // L extrapolated to R's depth
-                    // This happens when, say, L = [3, 7] and R = [[3, 1]] (what if R = [[3]]?)
-                    // In this case 3 need to compare against the entirety of [3, 1] (Less is the result)
-                    modify_cursor_to(right, r_border);
-                } else {
-                    // R extrapolated to L's depth
-                    modify_cursor_to(left, l_border); 
-                }
-
-                return compare_expr(left, right);
+                // Same level, continue
+                increment_cursor(left);
+                increment_cursor(right);
+                return compare_expr(left, right); 
             }
         }, 
-        (u, ATOMIC_SEP) if is_digit(u) => {
-            if left.2 <= right.2 { 
+        (LIST_END, LIST_END) => {
+            if cursor_at_end(left) && cursor_at_end(right) {
+                return Ordering::Equal; 
+            } else if cursor_at_end(left) {
                 return Ordering::Less; 
-            } else {
-                // [?] else? 
-                unreachable!(); 
-            }
-        }, 
-        (ATOMIC_SEP, u) if is_digit(u) => {
-            if right.2 <= left.2 { 
+            } else if cursor_at_end(right) {
                 return Ordering::Greater; 
             } else {
-                // [?] else? 
-                unreachable!(); 
-            }  
+                increment_cursor(left);
+                decrement_depth(left);
+                increment_cursor(right);
+                decrement_depth(right);
+                return compare_expr(left, right); 
+            }
         }, 
-
-        // Other: unreachable? 
-        _ => unreachable!(), 
-    }; 
+        (LIST_END, u) if is_digit(u) || u == ATOMIC_SEP || u == LIST_BGN => {
+            if left.2 >= right.2 {
+                // R extrapolated down to L's level, but L exhausted
+                return Ordering::Less; 
+            } else if right.2 >= left.2 {
+                // L extrapolated down to R's level, and L exhausted
+                return Ordering::Less; 
+            } else {
+                // [?] These should not be taken?
+                decrement_depth(left); 
+                increment_cursor(left); 
+                return compare_expr(left, right); 
+            }
+        }, 
+        (u, LIST_END) => { // Symmetry
+            return Ordering::reverse(compare_expr(right, left)); 
+        }, 
+        _ => unreachable!()
+    }
 }
 
 pub struct Day13; 
@@ -289,8 +228,8 @@ mod tests {
         assert_eq!(compare_expr(&mut l_cursor, &mut r_cursor), Ordering::Less); 
     }
 
-    const EXAMPLE_5: &str = r"[[1],4]
-[1,1,2]"; 
+    const EXAMPLE_5: &str = r"[[3,[9,9,[9,6,6,2],[]],[3,[5],[4,7,7],[10,5]]],[[5,5],[3],1,10],[]]
+[[[[],8,[3]]],[],[],[10,[6,6,[7,8,6],2,7],[8,[1,0,10,4,3]],[[9,0,4],4,[10]],[3,[2,7],[5]]],[9,0,[[0,4,5,2,9],[10,2,8],4,7,7],[0,1,4,[],[4,6,4,3]],[]]]"; 
 
     #[test]
     fn test_example_freeform() {
@@ -300,7 +239,7 @@ mod tests {
         let mut l_cursor = cursors.next().unwrap(); 
         let mut r_cursor = cursors.next().unwrap(); 
 
-        assert_ne!(compare_expr(&mut l_cursor, &mut r_cursor), Ordering::Greater); 
+        assert_eq!(compare_expr(&mut l_cursor, &mut r_cursor), Ordering::Greater); 
     }
 
     const SAMPLE_INPUT: &str = r"[1,1,3,1,1]
