@@ -2,7 +2,7 @@ use std::env;
 
 use advent_of_rust_22::get_solutions::AOCSolutions;
 use advent_of_rust_22::get_solutions::*; 
-use day12::Day12; 
+use day13::Day13; 
 
 // TODO: Write a proper CLI. 
 fn main() {
@@ -14,6 +14,6 @@ fn main() {
     
     let input = advent_of_rust_22::parse_to_string(path).unwrap(); 
 
-    println!("{}", Day12::get_star_1(input.as_str()).unwrap());
-    println!("{}", Day12::get_star_2(input.as_str()).unwrap()); 
+    println!("{}", Day13::get_star_1(input.as_str()).unwrap());
+    println!("{}", Day13::get_star_2(input.as_str()).unwrap()); 
 }
